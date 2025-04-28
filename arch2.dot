@@ -1,0 +1,159 @@
+digraph LakehouseMLAzureArchitecture {
+    rankdir=LR
+    fontsize=10
+    node [shape=box style=rounded fontname="Helvetica"]
+
+    subgraph cluster_sources {
+        label="Source Systems (External)"
+        style=dashed
+        OperationalDB [label="Operational Database\n(SQL Server on Azure VM)"]
+        IoTDevices [label="IoT Devices\n(Azure IoT Hub)"]
+        MobileApp [label="Technician Mobile App\n(Azure API Gateway)"]
+        CRMSystem [label="CRM System\n(Azure Dynamics 365)"]
+        TicketingSystem [label="Customer Support System\n(ServiceNow, Zendesk, etc.)"]
+    }
+
+    subgraph cluster_ingestion {
+        label="Ingestion Layer (Azure + Databricks)"
+        style=filled
+        color=lightgrey
+        AzureDataFactory [label="Azure Data Factory\n(Batch Ingestion)"]
+        AzureEventHub [label="Azure Event Hub\n(Stream Ingestion)"]
+        AutoLoader [label="Databricks AutoLoader\n(Streaming File Ingestion)"]
+    }
+
+    subgraph cluster_bronze {
+        label="Bronze Layer (Raw Storage)"
+        style=filled
+        color=lightsalmon
+        RawOperationalData [label="Raw Operational Data\n(Delta Lake)"]
+        RawTelemetryData [label="Raw IoT Telemetry Streams\n(Delta Lake)"]
+        RawMobileData [label="Raw Mobile App Data\n(Delta Lake)"]
+        RawCRMData [label="Raw CRM Data\n(Delta Lake)"]
+        RawTicketingData [label="Raw Ticketing Data\n(Delta Lake)"]
+    }
+
+    subgraph cluster_silver {
+        label="Silver Layer (Cleansed Data)"
+        style=filled
+        color=lightblue
+        dbtTransformations [label="dbt Transformations\n(SQL + dbt models)"]
+        CleanedWorkOrders [label="Cleaned Work Orders\n(Delta Lake)"]
+        CleanedTelemetryData [label="Cleaned Telemetry Data\n(Delta Lake)"]
+        CleanedCustomerProfiles [label="Cleaned Customer Profiles\n(Delta Lake)"]
+        CleanedTicketingData [label="Cleaned Ticketing Data\n(Delta Lake)"]
+        CleanedMobileData [label="Cleaned Mobile App Data\n(Delta Lake)"]
+    }
+
+    subgraph cluster_gold {
+        label="Gold Layer (Feature Layer / Business Entities)"
+        style=filled
+        color=gold
+        EquipmentMaintenanceFeatures [label="Equipment Maintenance Features\n(Delta Table)"]
+        CustomerChurnFeatures [label="Customer Churn Features\n(Delta Table)"]
+        TechnicianRoutingFeatures [label="Technician Routing Features\n(Delta Table)"]
+        Customer360 [label="Customer 360 View\n(Delta Table)"]
+    }
+
+    subgraph cluster_unstructured {
+        label="Unstructured Data (Blob Storage + Lakehouse)"
+        style=filled
+        color=lightpink
+        EquipmentImages [label="Equipment Images\n(Azure Blob Storage)"]
+        ServiceNotesEmbeddings [label="Service Notes\n(Text Embeddings)"]
+    }
+
+    subgraph cluster_governance {
+        label="Governance & Metadata (Azure Purview + Databricks Unity Catalog)"
+        style=dotted
+        DataCatalog [label="Azure Purview\n(Metadata Management)"]
+        LineageTracker [label="Unity Catalog\n(Lineage Tracking)"]
+        DataQualityChecks [label="Data Quality Validation\n(dbt Tests, Expectation Suites)"]
+    }
+
+    subgraph cluster_featurestore {
+        label="Feature Store Layer"
+        style=filled
+        color=lightseagreen
+        DatabricksFeatureStore [label="Databricks Feature Store"]
+    }
+
+    subgraph cluster_ml_serving {
+        label="Model Training & Serving (Azure ML + Databricks)"
+        style=filled
+        color=orchid
+        PredictiveMaintenanceModel [label="Predictive Maintenance Model\n(MLflow Model Registry)"]
+        ChurnPredictionModel [label="Customer Churn Model\n(MLflow Model Registry)"]
+        TechnicianOptimizationModel [label="Technician Routing Model\n(MLflow Model Registry)"]
+        DefectDetectionCVModel [label="Computer Vision Model\n(Azure ML / Databricks)"]
+        LLMAssistant [label="LLM Assistant\n(Trained on Text + Metadata)"]
+    }
+
+    // Connections
+
+    // Ingestion
+    OperationalDB -> AzureDataFactory -> RawOperationalData
+    IoTDevices -> AzureEventHub -> RawTelemetryData
+    MobileApp -> AutoLoader -> RawMobileData
+    CRMSystem -> AzureDataFactory -> RawCRMData
+    TicketingSystem -> AzureDataFactory -> RawTicketingData
+
+    // Bronze to Silver
+    RawOperationalData -> dbtTransformations
+    RawTelemetryData -> dbtTransformations
+    RawMobileData -> dbtTransformations
+    RawCRMData -> dbtTransformations
+    RawTicketingData -> dbtTransformations
+
+    dbtTransformations -> CleanedWorkOrders
+    dbtTransformations -> CleanedTelemetryData
+    dbtTransformations -> CleanedCustomerProfiles
+    dbtTransformations -> CleanedTicketingData
+    dbtTransformations -> CleanedMobileData
+
+    // Silver to Gold
+    CleanedWorkOrders -> EquipmentMaintenanceFeatures
+    CleanedTelemetryData -> EquipmentMaintenanceFeatures
+    CleanedWorkOrders -> TechnicianRoutingFeatures
+    CleanedMobileData -> TechnicianRoutingFeatures
+    CleanedCustomerProfiles -> CustomerChurnFeatures
+    CleanedTicketingData -> CustomerChurnFeatures
+    CleanedCustomerProfiles -> Customer360
+    CleanedTicketingData -> Customer360
+    CleanedMobileData -> Customer360
+
+    // Feature Store
+    EquipmentMaintenanceFeatures -> DatabricksFeatureStore
+    CustomerChurnFeatures -> DatabricksFeatureStore
+    TechnicianRoutingFeatures -> DatabricksFeatureStore
+
+    // Unstructured
+    MobileApp -> EquipmentImages
+    MobileApp -> ServiceNotesEmbeddings
+
+    EquipmentImages -> DefectDetectionCVModel
+    ServiceNotesEmbeddings -> LLMAssistant
+
+    // Model Training
+    DatabricksFeatureStore -> PredictiveMaintenanceModel
+    DatabricksFeatureStore -> ChurnPredictionModel
+    DatabricksFeatureStore -> TechnicianOptimizationModel
+
+    Customer360 -> LLMAssistant
+
+    // Governance
+    RawOperationalData -> DataCatalog
+    RawTelemetryData -> DataCatalog
+    RawMobileData -> DataCatalog
+    RawCRMData -> DataCatalog
+    RawTicketingData -> DataCatalog
+    CleanedWorkOrders -> LineageTracker
+    CleanedTelemetryData -> LineageTracker
+    CleanedCustomerProfiles -> LineageTracker
+    CleanedTicketingData -> LineageTracker
+    CleanedMobileData -> LineageTracker
+    EquipmentMaintenanceFeatures -> DataQualityChecks
+    CustomerChurnFeatures -> DataQualityChecks
+    TechnicianRoutingFeatures -> DataQualityChecks
+    Customer360 -> DataQualityChecks
+}
